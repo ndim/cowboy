@@ -708,8 +708,10 @@ reply(Status, Headers, Body, Req=#http_req{socket=Socket,
 	]),
 	case {Method, Body} of
 		{'HEAD', _} -> Transport:send(Socket, Head);
-		{_, {_, StreamFun}} -> Transport:send(Socket, Head), StreamFun();
-		{_, _} -> Transport:send(Socket, [Head, Body])
+		{_, {_, StreamFun}} -> Transport:send(Socket, Head),
+				       StreamFun();
+		{_, _} -> Transport:send(Socket, Head),
+			  Transport:send(Socket, Body)
 	end,
 	ReqPid ! {?MODULE, resp_sent},
 	{ok, Req#http_req{connection=RespConn, resp_state=done,
@@ -822,14 +824,14 @@ response_connection_parse(ReplyConn) ->
 -spec response_head(cowboy_http:status(), cowboy_http:headers(),
 	cowboy_http:headers(), cowboy_http:headers()) -> iolist().
 response_head(Status, Headers, RespHeaders, DefaultHeaders) ->
-	StatusLine = <<"HTTP/1.1 ", (status(Status))/binary, "\r\n">>,
+	StatusLine = <<"HTTP/1.1 ", (status(Status))/binary>>,
 	Headers2 = [{header_to_binary(Key), Value} || {Key, Value} <- Headers],
 	Headers3 = merge_headers(
 		merge_headers(Headers2, RespHeaders),
 		DefaultHeaders),
-	Headers4 = [[Key, <<": ">>, Value, <<"\r\n">>]
+	Headers4 = [[Key, <<": ">>, Value]
 		|| {Key, Value} <- Headers3],
-	[StatusLine, Headers4, <<"\r\n">>].
+	{head, [StatusLine | Headers4]}.
 
 -spec merge_headers(cowboy_http:headers(), cowboy_http:headers())
 	-> cowboy_http:headers().

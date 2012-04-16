@@ -75,7 +75,9 @@ recv(Socket, Length, Timeout) ->
 
 %% @doc Send a packet on a socket.
 %% @see gen_tcp:send/2
--spec send(inet:socket(), iolist()) -> ok | {error, atom()}.
+-spec send(inet:socket(), {head, iolist()} | iolist()) -> ok | {error, atom()}.
+send(Socket, {head, HeaderList}) ->
+	send_header_lines(Socket, HeaderList);
 send(Socket, Packet) ->
 	gen_tcp:send(Socket, Packet).
 
@@ -111,3 +113,19 @@ close(Socket) ->
 	-> {ok, {inet:ip_address(), inet:port_number()}} | {error, atom()}.
 sockname(Socket) ->
 	inet:sockname(Socket).
+
+%% @doc Send HTTP headers line by line
+-spec send_header_lines(inet:socket(), [iolist()]) -> ok | {error, atom()}.
+send_header_lines(Socket, [HeaderLine|HeaderList]) ->
+    gen_tcp:send(Socket, [HeaderLine, <<"\r\n">>]),
+    delay(100),
+    send_header_lines(Socket, HeaderList);
+send_header_lines(Socket, []) ->
+    gen_tcp:send(Socket, [<<"\r\n">>]).
+
+
+-spec delay(integer()) -> ok.
+delay(MilliSeconds) ->
+    receive
+    after MilliSeconds -> ok
+    end.
